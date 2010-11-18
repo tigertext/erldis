@@ -201,7 +201,7 @@ ensure_started(#redis{socket=undefined, db=DB}=State) ->
 		{error, Why} ->
 			Report = [{?MODULE, unable_to_connect}, {error, Why}, State],
 			error_logger:warning_report(Report),
-			State;
+			{error, Why};
 		{ok, NewState} ->
 			Socket = NewState#redis.socket,
 			
@@ -271,56 +271,65 @@ handle_call(get_all_results, From, #redis{pipeline=true, calls=Calls}=State) ->
 handle_call({send, Cmd}, From, State1) ->
 	% NOTE: redis ignores sent commands it doesn't understand, which means
 	% we don't get a reply, which means callers will timeout
-	State = ensure_started(State1),
-	
-	case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
-		ok ->
-			Queue = queue:in(From, State#redis.calls),
-			
-			case Cmd of
-				% TODO: is there a cleaner way of extracting select DB command
-				% from multi-bulk commands?
-				[_, [[<<"$">>, _, <<?EOL>>, <<"select">>, <<?EOL>>],
-					 [<<"$">>, _, <<?EOL>>, DB, <<?EOL>>]]] ->
-					{noreply, dont_reset_remaining(State, Queue, DB)};
-				_ ->
-					{noreply, dont_reset_remaining(State, Queue)}
-			end;
-		{error, Reason} ->
-			%error_logger:error_report([{send, Cmd}, {error, Reason}]),
-			{stop, timeout, {error, Reason}, State}
-	end;
+  case ensure_started(State1) of
+    {error, Why} ->
+      {stop, {error, Why}, {error, Why}, State1};
+    State ->	
+      case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
+        ok ->
+          Queue = queue:in(From, State#redis.calls),
+          
+          case Cmd of
+            % TODO: is there a cleaner way of extracting select DB command
+            % from multi-bulk commands?
+            [_, [[<<"$">>, _, <<?EOL>>, <<"select">>, <<?EOL>>],
+                 [<<"$">>, _, <<?EOL>>, DB, <<?EOL>>]]] ->
+              {noreply, dont_reset_remaining(State, Queue, DB)};
+            _ ->
+              {noreply, dont_reset_remaining(State, Queue)}
+          end;
+        {error, Reason} ->
+          %error_logger:error_report([{send, Cmd}, {error, Reason}]),
+          {stop, timeout, {error, Reason}, State}
+      end
+  end;
 handle_call({subscribe, Cmd, Class, Pid}, From, State1)->
-	State = ensure_started(State1),
-	
-	case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
-		ok ->
-			Queue = queue:in(From, State#redis.calls),
-			Subscribers = dict:store(Class, Pid, State#redis.subscribers),
-			{noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
-		{error, Reason} ->
-			error_logger:error_report([{send, Cmd}, {error, Reason}]),
-			{stop, timeout, {error, Reason}, State}
-	end;
+  case ensure_started(State1) of
+    {error, Why} ->
+      {stop, {error, Why}, {error, Why}, State1};
+    State ->  
+      case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
+        ok ->
+          Queue = queue:in(From, State#redis.calls),
+          Subscribers = dict:store(Class, Pid, State#redis.subscribers),
+          {noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
+        {error, Reason} ->
+          error_logger:error_report([{send, Cmd}, {error, Reason}]),
+          {stop, timeout, {error, Reason}, State}
+      end
+  end;
 handle_call({unsubscribe, Cmd, Class}, From, State1)->
-	State = ensure_started(State1),
-	
-	case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
-		ok ->
-			Queue = queue:in(From, State#redis.calls),
-			
-			if
-				Class == <<"">> ->
-					Subscribers = dict:new();
-				true ->
-					Subscribers = dict:erase(Class, State#redis.subscribers)
-			end,
-			
-			{noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
-		{error, Reason} ->
-			error_logger:error_report([{send, Cmd}, {error, Reason}]),
-			{stop, timeout, {error, Reason}, State}
-	end;
+  case ensure_started(State1) of
+    {error, Why} ->
+      {stop, {error, Why}, {error, Why}, State1};
+    State ->  
+      case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
+        ok ->
+          Queue = queue:in(From, State#redis.calls),
+          
+          if
+            Class == <<"">> ->
+              Subscribers = dict:new();
+            true ->
+              Subscribers = dict:erase(Class, State#redis.subscribers)
+          end,
+          
+          {noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
+        {error, Reason} ->
+          error_logger:error_report([{send, Cmd}, {error, Reason}]),
+          {stop, timeout, {error, Reason}, State}
+      end
+  end;
 handle_call(disconnect, _, State) ->
 	{stop, shutdown, shutdown, State};
 handle_call(_, _, State) ->
@@ -335,14 +344,18 @@ handle_cast({pipelining, Bool}, State) ->
 handle_cast(disconnect, State) ->
 	{stop, shutdown, State};
 handle_cast({send, Cmd}, #redis{remaining=Remaining, calls=Calls} = State1) ->
-	State = ensure_started(State1),
-	Queue = queue:in(async, Calls),
-	gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]),
-	
-	case Remaining of
-		0 -> {noreply, State#redis{remaining=1, calls=Queue}};
-		_ -> {noreply, State#redis{calls=Queue}}
-	end;
+  case ensure_started(State1) of
+    {error, Why} ->
+      {stop, {error, Why}, State1};
+    State ->  
+      Queue = queue:in(async, Calls),
+      gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]),
+      
+      case Remaining of
+        0 -> {noreply, State#redis{remaining=1, calls=Queue}};
+        _ -> {noreply, State#redis{calls=Queue}}
+      end
+  end;
 handle_cast(_, State) ->
 	{noreply, State}.
 
