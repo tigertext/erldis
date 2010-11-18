@@ -290,7 +290,7 @@ handle_call({send, Cmd}, From, State1) ->
           end;
         {error, Reason} ->
           %error_logger:error_report([{send, Cmd}, {error, Reason}]),
-          {stop, timeout, {error, Reason}, State}
+          {stop, {error, Reason}, {error, Reason}, State}
       end
   end;
 handle_call({subscribe, Cmd, Class, Pid}, From, State1)->
@@ -305,7 +305,7 @@ handle_call({subscribe, Cmd, Class, Pid}, From, State1)->
           {noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
         {error, Reason} ->
           error_logger:error_report([{send, Cmd}, {error, Reason}]),
-          {stop, timeout, {error, Reason}, State}
+          {stop, {error, Reason}, {error, Reason}, State}
       end
   end;
 handle_call({unsubscribe, Cmd, Class}, From, State1)->
@@ -327,7 +327,7 @@ handle_call({unsubscribe, Cmd, Class}, From, State1)->
           {noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
         {error, Reason} ->
           error_logger:error_report([{send, Cmd}, {error, Reason}]),
-          {stop, timeout, {error, Reason}, State}
+          {stop, {error, Reason}, {error, Reason}, State}
       end
   end;
 handle_call(disconnect, _, State) ->
