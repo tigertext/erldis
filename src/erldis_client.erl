@@ -277,7 +277,7 @@ handle_call({send, Cmd}, From, State1) ->
     State ->	
       case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
         ok ->
-          Queue = queue:in(From, State#redis.calls),
+          Queue = queue:in({From, Cmd, millis()}, State#redis.calls),
           
           case Cmd of
             % TODO: is there a cleaner way of extracting select DB command
@@ -300,7 +300,7 @@ handle_call({subscribe, Cmd, Class, Pid}, From, State1)->
     State ->  
       case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
         ok ->
-          Queue = queue:in(From, State#redis.calls),
+          Queue = queue:in({From, Cmd, millis()}, State#redis.calls),
           Subscribers = dict:store(Class, Pid, State#redis.subscribers),
           {noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
         {error, Reason} ->
@@ -315,7 +315,7 @@ handle_call({unsubscribe, Cmd, Class}, From, State1)->
     State ->  
       case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
         ok ->
-          Queue = queue:in(From, State#redis.calls),
+          Queue = queue:in({From, Cmd, millis()}, State#redis.calls),
           
           if
             Class == <<"">> ->
@@ -409,8 +409,10 @@ send_reply(#redis{pipeline=true, calls=Calls, results=Results, reply_caller=Repl
 
 send_reply(State) ->
 	case queue:out(State#redis.calls) of
-		{{value, From}, Queue} ->
+		{{value, {From, _Cmd, T0}}, Queue} ->
 			Reply = lists:reverse(State#redis.buffer),
+      T1 = millis(),
+      error_logger:info_msg("cmd processed in ~p ms~n", [T1 -T0]),
 			gen_server2:reply(From, Reply);
 		{empty, Queue} ->
 			ok
@@ -499,7 +501,7 @@ handle_info(_Info, State) ->
 
 terminate(_Reason, State) ->
 	% NOTE: if supervised with brutal_kill, may not be able to reply
-	R = fun(From) -> gen_server2:reply(From, {error, closed}) end,
+	R = fun({From, _Cmd, _T0}) -> gen_server2:reply(From, {error, closed}) end,
 	lists:foreach(R, queue:to_list(State#redis.calls)),
 	
 	case State#redis.socket of
@@ -508,3 +510,9 @@ terminate(_Reason, State) ->
 	end.
 
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
+
+millis() ->
+  {_, _, MicroSecs} = erlang:now(),
+  Millis = erlang:trunc(MicroSecs/1000),
+  calendar:datetime_to_gregorian_seconds(
+    calendar:local_time()) * 1000 + Millis.
