@@ -289,7 +289,7 @@ handle_call({send, Cmd}, From, State1) ->
               {noreply, dont_reset_remaining(State, Queue)}
           end;
         {error, Reason} ->
-          %error_logger:error_report([{send, Cmd}, {error, Reason}]),
+          error_logger:error_report([{send, Cmd}, {error, Reason}]),
           {stop, {error, Reason}, {error, Reason}, State}
       end
   end;
@@ -304,7 +304,7 @@ handle_call({subscribe, Cmd, Class, Pid}, From, State1)->
           Subscribers = dict:store(Class, Pid, State#redis.subscribers),
           {noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
         {error, Reason} ->
-          error_logger:error_report([{send, Cmd}, {error, Reason}]),
+          error_logger:error_report([{subscribe, Cmd}, {error, Reason}]),
           {stop, {error, Reason}, {error, Reason}, State}
       end
   end;
@@ -326,7 +326,7 @@ handle_call({unsubscribe, Cmd, Class}, From, State1)->
           
           {noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
         {error, Reason} ->
-          error_logger:error_report([{send, Cmd}, {error, Reason}]),
+          error_logger:error_report([{unsubscribe, Cmd}, {error, Reason}]),
           {stop, {error, Reason}, {error, Reason}, State}
       end
   end;
