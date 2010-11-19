@@ -102,15 +102,20 @@ erlang_timeout(infinity) -> infinity;
 erlang_timeout(V) when is_number(V) -> V + ?default_timeout.
 
 send(Client, Cmd, Timeout) ->
+  T0 = millis(),
 	Piped = gen_server2:call(Client, is_pipelined),
-	
+	T1 = millis(),
+  
 	if
 		Piped ->
 			gen_server2:cast(Client, {send, Cmd});
 		true ->
 			case gen_server2:call(Client, {send, Cmd}, Timeout) of
 				{error, Reason} -> throw({error, Reason});
-				Retval -> Retval
+				Retval ->
+          T2 = millis(),
+          error_logger:info_msg("is_p? ~p ms, cmd ~p ms, tot ~p ms~n", [T1 -T0, T2 - T1, T2 - T0]),
+          Retval
 			end
 	end.
 
@@ -279,10 +284,9 @@ handle_call({send, Cmd}, From, State1) ->
     {error, Why} ->
       {stop, {error, Why}, {error, Why}, State1};
     State ->
-      T0 = millis(),
       case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
         ok ->
-          Queue = queue:in({From, Cmd, T0, millis()}, State#redis.calls),
+          Queue = queue:in(From, State#redis.calls),
           
           case Cmd of
             % TODO: is there a cleaner way of extracting select DB command
@@ -303,10 +307,9 @@ handle_call({subscribe, Cmd, Class, Pid}, From, State1)->
     {error, Why} ->
       {stop, {error, Why}, {error, Why}, State1};
     State ->
-      T0 = millis(),
       case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
         ok ->
-          Queue = queue:in({From, Cmd, T0, millis()}, State#redis.calls),
+          Queue = queue:in(From, State#redis.calls),
           Subscribers = dict:store(Class, Pid, State#redis.subscribers),
           {noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
         {error, Reason} ->
@@ -319,10 +322,9 @@ handle_call({unsubscribe, Cmd, Class}, From, State1)->
     {error, Why} ->
       {stop, {error, Why}, {error, Why}, State1};
     State ->
-      T0 = millis(),
       case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
         ok ->
-          Queue = queue:in({From, Cmd, T0, millis()}, State#redis.calls),
+          Queue = queue:in(From, State#redis.calls),
           
           if
             Class == <<"">> ->
@@ -418,11 +420,9 @@ send_reply(#redis{pipeline=true, calls=Calls, results=Results, reply_caller=Repl
 
 send_reply(State) ->
 	case queue:out(State#redis.calls) of
-		{{value, {From, _Cmd, T0, T1}}, Queue} ->
+		{{value, From}, Queue} ->
 			Reply = lists:reverse(State#redis.buffer),
-      T2 = millis(),
-      error_logger:info_msg("cmd sent in ~p ms, processed in ~p ms~n", [T1 -T0, T2 - T1]),
-			gen_server2:reply(From, Reply);
+      gen_server2:reply(From, Reply);
 		{empty, Queue} ->
 			ok
 	end,
@@ -512,7 +512,7 @@ handle_info(_Info, State) ->
 
 terminate(Reason, State) ->
 	% NOTE: if supervised with brutal_kill, may not be able to reply
-	R = fun({From, _Cmd, _T0, _T1}) -> gen_server2:reply(From, {error, closed}) end,
+	R = fun(From) -> gen_server2:reply(From, {error, closed}) end,
 	lists:foreach(R, queue:to_list(State#redis.calls)),
 
   case Reason of
