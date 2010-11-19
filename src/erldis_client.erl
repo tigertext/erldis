@@ -190,10 +190,14 @@ init([Host, Port]) ->
 	process_flag(trap_exit, true),
 	{ok, Timeout} = app_get_env(erldis, timeout, 500),
 	State = #redis{calls=queue:new(), host=Host, port=Port, timeout=Timeout, subscribers=dict:new()},
-	
 	case connect_socket(State, once) of
-		{error, Why} -> {stop, {socket_error, Why}};
-		{ok, NewState} -> {ok, NewState}
+		{error, Why} ->
+      Report = [{?MODULE, unable_to_connect}, {error, Why}, State],
+      error_logger:warning_report(Report),
+      {stop, {socket_error, Why}};
+		{ok, NewState} ->
+      error_logger:info_msg("Connection to ~p:~p started~n", [Host, Port]),
+      {ok, NewState}
 	end.
 
 ensure_started(#redis{socket=undefined, db=DB}=State) ->
@@ -331,7 +335,8 @@ handle_call({unsubscribe, Cmd, Class}, From, State1)->
       end
   end;
 handle_call(disconnect, _, State) ->
-	{stop, shutdown, shutdown, State};
+  error_logger:info_report("Disconnecting from ~p:~p~n", [State#redis.host, State#redis.port]),
+  {stop, shutdown, shutdown, State};
 handle_call(_, _, State) ->
 	{reply, undefined, State}.
 
@@ -342,7 +347,8 @@ handle_call(_, _, State) ->
 handle_cast({pipelining, Bool}, State) ->
 	{noreply, State#redis{pipeline=Bool}};
 handle_cast(disconnect, State) ->
-	{stop, shutdown, State};
+	error_logger:info_report("Disconnecting from ~p:~p~n", [State#redis.host, State#redis.port]),
+  {stop, shutdown, State};
 handle_cast({send, Cmd}, #redis{remaining=Remaining, calls=Calls} = State1) ->
   case ensure_started(State1) of
     {error, Why} ->
@@ -499,10 +505,17 @@ handle_info(_Info, State) ->
 %% terminate %%
 %%%%%%%%%%%%%%%
 
-terminate(_Reason, State) ->
+terminate(Reason, State) ->
 	% NOTE: if supervised with brutal_kill, may not be able to reply
 	R = fun({From, _Cmd, _T0}) -> gen_server2:reply(From, {error, closed}) end,
 	lists:foreach(R, queue:to_list(State#redis.calls)),
+
+  case Reason of
+    normal ->
+      error_logger:info_msg("Connection to ~p:~p terminated normally~n", [State#redis.host, State#redis.port]);
+    Reason ->
+      error_logger:warning_msg("Connection to ~p:~p terminated: ~p~n", [State#redis.host, State#redis.port, Reason])
+  end,
 	
 	case State#redis.socket of
 		undefined -> ok;
