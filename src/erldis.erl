@@ -65,6 +65,7 @@ get(Client, Key) -> erldis_client:sr_scall(Client, [<<"get">>, Key]).
 getset(Client, Key, Value) ->
 	erldis_client:sr_scall(Client, [<<"getset">>, Key, Value]).
 
+mget(_Client, []) -> []; %%NOTE: redis fails when called with mget and no arguments
 mget(Client, Keys) -> erldis_client:scall(Client, [<<"mget">> | Keys]).
 
 setnx(Client, Key, Value) ->

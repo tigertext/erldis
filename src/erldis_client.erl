@@ -491,7 +491,9 @@ handle_info({tcp, Socket, Data}, State) ->
 	%error_logger:error_report([{data, Data}, {state, State}]),
 	case parse_state(State, Socket, Data) of
 		{error, Reason} ->
-			{stop, Reason, State};
+			Report = [{?MODULE, unable_to_parse}, {error, Reason}, State],
+      error_logger:warning_report(Report),
+      {stop, Reason, State};
 		NewState ->
 			inet:setopts(Socket, [{active, once}]),
 			{noreply, NewState}
