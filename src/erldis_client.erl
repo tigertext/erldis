@@ -102,9 +102,7 @@ erlang_timeout(infinity) -> infinity;
 erlang_timeout(V) when is_number(V) -> V + ?default_timeout.
 
 send(Client, Cmd, Timeout) ->
-  T0 = millis(),
 	Piped = gen_server2:call(Client, is_pipelined),
-	T1 = millis(),
   
 	if
 		Piped ->
@@ -113,8 +111,6 @@ send(Client, Cmd, Timeout) ->
 			case gen_server2:call(Client, {send, Cmd}, Timeout) of
 				{error, Reason} -> throw({error, Reason});
 				Retval ->
-          T2 = millis(),
-          error_logger:info_msg("is_p? ~p ms, cmd ~p ms, tot ~p ms~n", [T1 -T0, T2 - T1, T2 - T0]),
           Retval
 			end
 	end.
@@ -379,7 +375,6 @@ recv_value(Socket, NBytes) ->
 	
 	case gen_tcp:recv(Socket, NBytes+2) of
 		{ok, Packet} ->
-%		  error_logger:error_report({line, Packet, NBytes}),
 			inet:setopts(Socket, [{packet, line}]), % go back to line mode
 			trim2(Packet);
 		{error, Reason} ->
@@ -431,7 +426,6 @@ send_reply(State) ->
 
 parse_state(State, Socket, Data) ->
 	Parse = erldis_proto:parse(State#redis.pstate, trim2(Data)),
-%        error_logger:error_msg({trimmed, trim2(Data), parsed, Parse}),
 	case {State#redis.remaining-1, Parse} of
 		{0, error} ->
 			% next line is the error string
@@ -491,7 +485,6 @@ parse_state(State, Socket, Data) ->
 	end.
 
 handle_info({tcp, Socket, Data}, State) ->
-	%error_logger:error_report([{data, Data}, {state, State}]),
 	case parse_state(State, Socket, Data) of
 		{error, Reason} ->
 			Report = [{?MODULE, unable_to_parse}, {error, Reason}, State],
@@ -528,9 +521,3 @@ terminate(Reason, State) ->
 	end.
 
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
-
-millis() ->
-  {_, _, MicroSecs} = erlang:now(),
-  Millis = erlang:trunc(MicroSecs/1000),
-  calendar:datetime_to_gregorian_seconds(
-    calendar:local_time()) * 1000 + Millis.
