@@ -2,6 +2,8 @@
 
 -include("erldis.hrl").
 
+-define(default_timeout, 20000).
+
 -compile(export_all).
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -284,7 +286,7 @@ sort(Client, Key, Extra) when is_binary(Key), is_binary(Extra) ->
 %% Transactions %%
 %%%%%%%%%%%%%%%%%%
 
-get_all_results(Client) -> gen_server2:call(Client, get_all_results).
+get_all_results(Client) -> gen_server2:call(Client, get_all_results, ?default_timeout).
 
 set_pipelining(Client, Bool) -> gen_server2:cast(Client, {pipelining, Bool}).
 

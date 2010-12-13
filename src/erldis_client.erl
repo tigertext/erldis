@@ -24,7 +24,7 @@
 		 terminate/2, code_change/3]).
 -export([subscribe/4, unsubscribe/3]).
 
--define(default_timeout, 5000). %% same as in gen.erl in stdlib
+-define(default_timeout, 20000).
 
 %%%%%%%%%%%%%
 %% helpers %%
@@ -102,7 +102,7 @@ erlang_timeout(infinity) -> infinity;
 erlang_timeout(V) when is_number(V) -> V + ?default_timeout.
 
 send(Client, Cmd, Timeout) ->
-	Piped = gen_server2:call(Client, is_pipelined),
+	Piped = gen_server2:call(Client, is_pipelined, ?default_timeout),
   
 	if
 		Piped ->
@@ -185,7 +185,7 @@ start(Host, Port, Options, DB, ShouldLink) ->
 	end.
 
 % stop is synchronous so can be sure that client is shutdown
-stop(Client) -> gen_server2:call(Client, disconnect).
+stop(Client) -> gen_server2:call(Client, disconnect, ?default_timeout).
 
 init([Host, Port]) ->
 	process_flag(trap_exit, true),
