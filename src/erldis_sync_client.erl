@@ -140,7 +140,7 @@ info(Client) ->
 		end,
 	
 	[S] = scall(Client, info),
-	elists:mapfilter(F, string:tokens(S, "\r\n")).
+	mapfilter(F, string:tokens(S, "\r\n")).
 
 parse_stat("redis_version:"++Vsn) ->
 	{version, Vsn};
@@ -323,3 +323,22 @@ terminate(_Reason, State) ->
 	end.
 
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
+
+
+%%%%%%%%%%%%%%%
+%% private   %%
+%%%%%%%%%%%%%%%
+
+%% @doc Combines map and filter into 1 operation. Like map, calls F on each
+%% item in List. But if F returns false, then the result is dropped.
+%% @reference Taken from <a href="https://github.com/japerk/elib/blob/master/src/elists.erl">elib</a>
+%% @spec mapfilter(F::function(), List::list()) -> list()
+mapfilter(F, List) -> lists:reverse(mapfilter(F, List, [])).
+
+mapfilter(_, [], Results) ->
+  Results;
+mapfilter(F, [Item | Rest], Results) ->
+  case F(Item) of
+    false -> mapfilter(F, Rest, Results);
+    Term -> mapfilter(F, Rest, [Term | Results])
+  end.
