@@ -110,8 +110,7 @@ send(Client, Cmd, Timeout) ->
 		true ->
 			case gen_server2:call(Client, {send, Cmd}, Timeout) of
 				{error, Reason} -> throw({error, Reason});
-				Retval ->
-          Retval
+				Retval -> Retval
 			end
 	end.
 
@@ -191,14 +190,10 @@ init([Host, Port]) ->
 	process_flag(trap_exit, true),
 	{ok, Timeout} = app_get_env(erldis, timeout, 500),
 	State = #redis{calls=queue:new(), host=Host, port=Port, timeout=Timeout, subscribers=dict:new()},
+	
 	case connect_socket(State, once) of
-		{error, Why} ->
-      Report = [{?MODULE, unable_to_connect}, {error, Why}, State],
-      error_logger:warning_report(Report),
-      {stop, {socket_error, Why}};
-		{ok, NewState} ->
-      error_logger:info_msg("Connection to ~p:~p started~n", [Host, Port]),
-      {ok, NewState}
+		{error, Why} -> {stop, {socket_error, Why}};
+		{ok, NewState} -> {ok, NewState}
 	end.
 
 ensure_started(#redis{socket=undefined, db=DB}=State) ->
