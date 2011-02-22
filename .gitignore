@@ -4,3 +4,4 @@
 .hgignore
 *.beam
 .plt
+.DS_Store
