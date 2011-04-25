@@ -232,7 +232,9 @@ zcount(Client, Key, Min, Max) ->
 zscore(Client, Key, Member) ->
 	numeric(erldis_client:sr_scall(Client, [<<"zscore">>, Key, Member])).
 
-%% TODO: zremrangebyrank
+zremrangebyrank(Client, Key, Start, End) ->
+	Cmd = [<<"zremrangebyrank">>, Key, Start, End],
+	numeric(erldis_client:sr_scall(Client, Cmd)).
 
 zremrangebyscore(Client, Key, Min, Max) ->
 	Cmd = [<<"zremrangebyscore">>, Key, Min, Max],
@@ -257,6 +259,9 @@ hmset(Client, Key, Fields) ->
 	Args = lists:foldl(fun({K, V}, Acc) -> [K, V | Acc] end, [], Fields),
 	erldis_client:sr_scall(Client, [<<"hmset">>, Key | Args]).
 
+hmget(Client, Key, Keys) ->
+  erldis_client:scall(Client, [<<"hmget">>, Key | Keys]).
+
 hincrby(Client, Key, Field, Incr) ->
 	numeric(erldis_client:sr_scall(Client, [<<"hincrby">>, Key, Field, Incr])).
 
@@ -274,6 +279,16 @@ hvals(Client, Key) -> erldis_client:scall(Client, [<<"hvals">>, Key]).
 
 hgetall(Client, Key) ->
 	tuplelist(erldis_client:scall(Client, [<<"hgetall">>, Key])).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Commands operating on binary values %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+setbit(Client, Key, Offset, Value) ->
+  numeric(erldis_client:sr_scall(Client, [<<"setbit">>, Key, Offset, Value])).
+
+getbit(Client, Key, Offset) ->
+  numeric(erldis_client:sr_scall(Client, [<<"getbit">>, Key, Offset])).
 
 %%%%%%%%%%%%%
 %% Sorting %%
@@ -293,7 +308,19 @@ sort(Client, Key, Extra) when is_binary(Key), is_binary(Extra) ->
 get_all_results(Client) -> gen_server2:call(Client, get_all_results, ?default_timeout).
 
 set_pipelining(Client, Bool) -> gen_server2:cast(Client, {pipelining, Bool}).
-
+watch(Client, Keys)->
+    erldis_client:sr_scall(Client,[ <<"watch">>, Keys]).
+    
+unwatch(Client, Keys) ->
+    erldis_client:sr_scall(Client,[ <<"watch">>, Keys]).
+    
+unwatch(Client)->
+    unwatch(Client, []).
+    
+exec(Client, Watches, Fun) ->
+    watch(Client, Watches),
+    exec(Client, Fun).
+    
 exec(Client, Fun) ->
 	case erldis_client:sr_scall(Client, <<"multi">>) of
 		ok ->

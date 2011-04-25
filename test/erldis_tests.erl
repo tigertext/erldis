@@ -65,6 +65,7 @@ hash_test() ->
 	?assertEqual(<<"value">>, erldis:hget(Client, <<"key">>, <<"field">>)),
 	?assertEqual(<<"value2">>, erldis:hget(Client, <<"key2">>, <<"field">>)),
 	?assertEqual(<<"valueK">>, erldis:hget(Client, <<"key2">>, <<"fieldK">>)),
+	?assertEqual([<<"valueK">>, <<"valueM">>, nil], erldis:hmget(Client, <<"key2">>, [<<"fieldK">>, <<"fieldM">>, <<"notThere">>])),
 	?assertEqual(20, erldis:hincrby(Client, <<"increment-key">>, <<"by-20">>, 20)),
 	?assertEqual(40, erldis:hincrby(Client, <<"increment-key">>, <<"by-20">>, 20)),
 	?assertEqual(<<"40">>, erldis:hget(Client, <<"increment-key">>, <<"by-20">>)),
@@ -161,29 +162,43 @@ zset_test() ->
 	?assertEqual(0, erldis:zcount(Client, <<"foo">>, 0, 10)),
 	?assertEqual([], erldis:zrange(Client, <<"foo">>, 0, 2)),
 	
+	?assertEqual(0, erldis:zremrangebyrank(Client, "foo", 0, 1)),
+	
 	?assertEqual(shutdown, erldis:quit(Client)).
 
-% inline_tests(Client) ->
-%	  [?_assertMatch(ok, erldis:set(Client, <<"hello">>, <<"kitty!">>)),
-%	   ?_assertMatch(false, erldis:setnx(Client, <<"hello">>, <<"kitty!">>)),
-%	   ?_assertMatch(true, erldis:exists(Client, <<"hello">>)),
-%	   ?_assertMatch(true, erldis:del(Client, <<"hello">>)),
-%	   ?_assertMatch(false, erldis:exists(Client, <<"hello">>)),
-%
-%	   ?_assertMatch(true, erldis:setnx(Client, <<"hello">>, <<"kitty!">>)),
-%	   ?_assertMatch(true, erldis:exists(Client, <<"hello">>)),
-%	   ?_assertMatch("kitty!">>, erldis:get(Client, <<"hello">>)),
-%	   ?_assertMatch(true, erldis:del(Client, <<"hello">>)),
-%
-%
-%	   ?_assertMatch(1, erldis:incr(Client, <<"pippo">>))
-%	   ,?_assertMatch(2, erldis:incr(Client, <<"pippo">>))
-%	   ,?_assertMatch(1, erldis:decr(Client, <<"pippo">>))
-%	   ,?_assertMatch(0, erldis:decr(Client, <<"pippo">>))
-%	   ,?_assertMatch(-1, erldis:decr(Client, <<"pippo">>))
-%
-%	   ,?_assertMatch(6, erldis:incrby(Client, <<"pippo">>, 7))
-%	   ,?_assertMatch(2, erldis:decrby(Client, <<"pippo">>, 4))
-%	   ,?_assertMatch(-2, erldis:decrby(Client, <<"pippo">>, 4))
-%	   ,?_assertMatch(true, erldis:del(Client, <<"pippo">>))
-%	  ].
+binary_test() ->
+	{ok, Client} = erldis:connect("localhost", 6379),
+	?assertEqual(ok, erldis:flushdb(Client)),
+  ?assertEqual(0, erldis:setbit(Client, <<"bin_key">>, 7, 1)),
+  ?assertEqual(1, erldis:getbit(Client, <<"bin_key">>, 7)).
+
+multiexec_test()->	
+    application:load(erldis),
+    {ok, Client} = erldis_client:connect(),
+    erldis:flushdb(Client),
+    Fun = fun(C)->
+      erldis:set(C, <<"toto">>, <<"tata">>),
+      erldis:set(C, <<"toto2">>, <<"tata2">>),
+      erldis:get(C, <<"toto">>)
+    end,
+    ?assertEqual([ok, ok, <<"tata">>],erldis:exec(Client, Fun)),
+    Fun2 = fun(C)->
+      erldis:sadd(C, <<"foo">>, <<"bar">>),
+      erldis:srem(C, <<"foo">>, <<"bar">>),
+      erldis:set(C, <<"foo3">>, <<"bar3">>)
+    end,
+    ?assertEqual([true, true, ok],erldis:exec(Client, Fun2)).
+  
+watch_test()->
+    application:load(erldis),
+    {ok, Client} = erldis_client:connect(),
+    Fun2 = fun(C)->
+      erldis:sadd(C, <<"foo">>, <<"bar">>),
+      erldis:srem(C, <<"foo">>, <<"bar">>),
+      erldis:set(C, <<"foo3">>, <<"bar3">>)
+    end,
+    ?assertEqual([true, true, ok],erldis:exec(Client, Fun2)),
+    erldis:watch(Client, <<"foo">>),
+    {ok, Client2} = erldis_client:connect(),
+    erldis:sadd(Client2, <<"foo">>, <<"baz">>),
+    ?assertEqual([],erldis:exec(Client, Fun2)).
