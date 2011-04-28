@@ -25,6 +25,7 @@
 -export([subscribe/4, unsubscribe/3]).
 
 -define(default_timeout, 5000). %% same as in gen.erl in stdlib
+-define(DEFAULT_RETRY_INTERVAL, 5000). %% retry redis connection interval (ms)
 
 %%%%%%%%%%%%%
 %% helpers %%
@@ -204,7 +205,10 @@ ensure_started(#redis{socket=undefined, db=DB}=State) ->
 		{error, Why} ->
 			Report = [{?MODULE, unable_to_connect}, {error, Why}, State],
 			error_logger:warning_report(Report),
-			State;
+			
+			error_logger:info_msg("Attempting to reconnect to redis in ~p ms~n", [?DEFAULT_RETRY_INTERVAL]),
+			timer:sleep(?DEFAULT_RETRY_INTERVAL),
+			ensure_started(State);
 		{ok, NewState} ->
 			Socket = NewState#redis.socket,
 			
