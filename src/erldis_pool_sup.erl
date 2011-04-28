@@ -2,6 +2,7 @@
 
 -export([
   start_link/1,
+  start_link/2,
   stop/0,
   init/1,
   add_pid/2,
@@ -22,7 +23,10 @@
 %% The above ConnList specifies 5 connections to localhost:6379 and 5 connections to
 %% localhost:6380.
 %%
-start_link(ConnList) ->
+start_link(ConnList) -> start_link(ConnList, true).
+
+
+start_link(ConnList, ManageSupervisor) ->
   % Create an ETS table to hold the list of child PIDs
   catch ets:new(?MODULE, [public, named_table, bag]),
   
@@ -32,9 +36,13 @@ start_link(ConnList) ->
   % Start a supervisor to manage the connections
   {ok, Pid} = supervisor:start_link({local, ?MODULE}, ?MODULE, [ConnList]),
   
-  spawn(fun() ->
-      monitor_sup(ConnList, Pid)
-  end),
+  case ManageSupervisor of
+      true ->
+          spawn(fun() ->
+              monitor_sup(ConnList, Pid)
+          end);
+      _ -> ok
+  end,
   
   {ok, Pid}.
   

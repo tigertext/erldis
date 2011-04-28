@@ -21,16 +21,28 @@
 %% @doc Finds the item that contains the Key on the Ring
 %%
 get_item(Key, {_NumReplicas, Circle}) ->
-  Point = hash_key(Key),
-  {Item, _Replica} = case lists:dropwhile(fun({_Item, Replica}) ->
-    Replica =< Point
-  end, Circle) of
-    [] ->
-      hd(Circle);
-    [H|_T] ->
-      H
-  end,
-  Item.
+    Point = hash_key(Key),
+    find_next_highest_item(Point, Circle).
+
+find_next_highest_item(_Point, [{Item, _P}]) ->
+    Item;
+ 
+find_next_highest_item(_Point, [])  ->
+    undefined;
+  
+find_next_highest_item(Point, Points) ->
+    NumPoints = length(Points),
+    Halfway = round(NumPoints / 2),
+    {Item, HalfwayPoint} = lists:nth(Halfway, Points),
+    if 
+        Point == HalfwayPoint ->
+            Item;
+        HalfwayPoint > Point ->
+            find_next_highest_item(Point, lists:sublist(Points, 1, Halfway));
+        true ->
+            % upper half
+            find_next_highest_item(Point, lists:sublist(Points, Halfway + 1, NumPoints))
+    end.
 
 %%
 %% @doc Creates a hash ring that places Items in the ring NumReplicas times

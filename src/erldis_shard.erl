@@ -21,6 +21,7 @@
 
 -export([
     start_link/1,
+    start_link/2,
     client/2,
     get_slot/1,
     get_ring/0
@@ -46,7 +47,9 @@
 %%
 %% @spec start_link(shard_spec()) -> {ok, pid()}
 %%
-start_link(ShardSpec) ->
+start_link(ShardSpec) -> start_link(ShardSpec, true).
+
+start_link(ShardSpec, ManageSupervisor) ->
     catch ets:new(?MODULE, [public, named_table, bag]),
     ets:delete_all_objects(?MODULE),
     
@@ -72,7 +75,7 @@ start_link(ShardSpec) ->
     end, ShardSpec)),
     
     % Start the pool supervisor to manage all the connections
-    {ok, Pid} = erldis_pool_sup:start_link(ConnList),
+    {ok, Pid} = erldis_pool_sup:start_link(ConnList, ManageSupervisor),
     {ok, Pid}.
 
 %%
