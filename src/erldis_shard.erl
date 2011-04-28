@@ -82,8 +82,14 @@ start_link(ShardSpec, ManageSupervisor) ->
 %% @doc Returns the current Ring
 %%
 get_ring() ->
-    [{ring, Ring}] = ets:lookup(?MODULE, ring),
-    Ring.
+    case ets:lookup(?MODULE, ring_array) of
+        [{ring_array, Ring}] -> Ring;
+        _ ->
+            [{ring, {NumReplicas, Circle}}] = ets:lookup(?MODULE, ring),
+            RingArray = array:from_list(Circle),
+            ets:insert(?MODULE, {ring_array, {NumReplicas, RingArray}}),
+            {NumReplicas, RingArray}
+    end.
 
 %%
 %% @doc Returns the slot in the ring for the given Key.

@@ -20,9 +20,15 @@
 %%
 %% @doc Finds the item that contains the Key on the Ring
 %%
+get_item(Key, {_NumReplicas, Circle}) when is_list(Circle) ->
+    get_item_array(Key, array:from_list(Circle));
+    
 get_item(Key, {_NumReplicas, Circle}) ->
+    get_item_array(Key, Circle).
+    
+get_item_array(Key, Array) ->
     Point = hash_key(Key),
-    find_next_highest_item(Point, array:from_list(Circle), 0, length(Circle)).
+    find_next_highest_item(Point, Array, 0, array:size(Array)).
 
 find_next_highest_item(_Point, Items, A, B) when (A + 1) == B ->
     element(1, array:get(B - 1, Items));
