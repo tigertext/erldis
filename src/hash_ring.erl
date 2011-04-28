@@ -22,10 +22,10 @@
 %%
 get_item(Key, {_NumReplicas, Circle}) ->
     Point = hash_key(Key),
-    find_next_highest_item(Point, Circle, 0, length(Circle)).
+    find_next_highest_item(Point, array:from_list(Circle), 0, length(Circle)).
 
 find_next_highest_item(_Point, Items, A, B) when (A + 1) == B ->
-    element(1, lists:nth(A + 1, Items));
+    element(1, array:get(B - 1, Items));
  
 find_next_highest_item(_Point, [], _, _)  ->
     undefined;
@@ -33,7 +33,7 @@ find_next_highest_item(_Point, [], _, _)  ->
 find_next_highest_item(Point, Points, A, B) ->
     NumPoints = B - A,
     Halfway = round(NumPoints / 2),
-    {Item, HalfwayPoint} = lists:nth(Halfway + A, Points),
+    {Item, HalfwayPoint} = array:get(A + Halfway - 1, Points),
     if 
         Point == HalfwayPoint ->
             Item;
