@@ -27,7 +27,7 @@
 ]).
 
 %% This value specifies how many times one item will appear on the ring. 
--define(DEFAULT_NUM_REPLICAS, 128).
+-define(DEFAULT_NUM_REPLICAS, 512).
 
 %% @doc Initializes a Redis sharded cluster with the given ShardList.
 %%
