@@ -238,19 +238,30 @@ ensure_started(State)->
 
 connect_socket(#redis{socket=undefined, host=Host, port=Port, pwd=Pwd, timeout=Timeout}=State, Active) ->
 	% NOTE: send_timeout_close not used because causes {error, badarg}
-	Opts = [binary, {active, Active}, {packet, line}, {nodelay, true},
-			{send_timeout, Timeout}],
-	% without timeout, default is infinity
-	case gen_tcp:connect(Host, Port, Opts, Timeout) of
-		{ok, Socket} ->
-      % send & recv here since don't have an active socket
-      % because we want synchronous result since this is called
-      % from handle_* functions
-      Cmd = erldis_proto:multibulk_cmd([<<"auth">>, Pwd]),
-      gen_tcp:send(Socket, Cmd),
-      {ok, <<"+OK", ?EOL>>} = gen_tcp:recv(Socket, 0),
-      {ok, State#redis{socket=Socket}};
-		{error, Why} -> {error, Why}
+  case Pwd of
+    none ->
+      Opts = [binary, {active, Active}, {packet, line}, {nodelay, true}, {send_timeout, Timeout}],
+      % without timeout, default is infinity
+      case gen_tcp:connect(Host, Port, Opts, Timeout) of
+        {ok, Socket} ->
+          {ok, State#redis{socket=Socket}};
+        {error, Why} -> {error, Why}
+      end;
+    Pwd ->
+      Opts = [binary, {active, once}, {packet, line}, {nodelay, true}, {send_timeout, Timeout}],
+      % without timeout, default is infinity
+      case gen_tcp:connect(Host, Port, Opts, Timeout) of
+        {ok, Socket} ->
+          % send & recv here since don't have an active socket
+          % because we want synchronous result since this is called
+          % from handle_* functions
+          Cmd = erldis_proto:multibulk_cmd([<<"auth">>, Pwd]),
+          gen_tcp:send(Socket, Cmd),
+          {ok, <<"+OK", ?EOL>>} = gen_tcp:recv(Socket, 0),
+          inet:setopts(Socket, [{active, Active}]),
+          {ok, State#redis{socket=Socket}};
+        {error, Why} -> {error, Why}
+      end
 	end;
 connect_socket(State, _) ->
 	{ok, State}.
