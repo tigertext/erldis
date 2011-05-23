@@ -248,7 +248,7 @@ connect_socket(#redis{socket=undefined, host=Host, port=Port, pwd=Pwd, timeout=T
         {error, Why} -> {error, Why}
       end;
     Pwd ->
-      Opts = [binary, {active, once}, {packet, line}, {nodelay, true}, {send_timeout, Timeout}],
+      Opts = [binary, {active, false}, {packet, line}, {nodelay, true}, {send_timeout, Timeout}],
       % without timeout, default is infinity
       case gen_tcp:connect(Host, Port, Opts, Timeout) of
         {ok, Socket} ->
