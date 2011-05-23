@@ -2,12 +2,15 @@
 
 -export([
   start_link/1,
+  start_link/2,
   stop/0,
   init/1,
   add_pid/2,
   get_pids/1,
   get_random_pid/1
 ]).
+
+-define(SUPERVISOR_RESTART_FREQUENCY, 5000).
 
 %%
 %% @doc Starts a supervisor that manages pools of Redis connections.
@@ -20,7 +23,10 @@
 %% The above ConnList specifies 5 connections to localhost:6379 and 5 connections to
 %% localhost:6380.
 %%
-start_link(ConnList) ->
+start_link(ConnList) -> start_link(ConnList, true).
+
+
+start_link(ConnList, ManageSupervisor) ->
   % Create an ETS table to hold the list of child PIDs
   catch ets:new(?MODULE, [public, named_table, bag]),
   
@@ -29,6 +35,15 @@ start_link(ConnList) ->
   
   % Start a supervisor to manage the connections
   {ok, Pid} = supervisor:start_link({local, ?MODULE}, ?MODULE, [ConnList]),
+  
+  case ManageSupervisor of
+      true ->
+          spawn(fun() ->
+              monitor_sup(ConnList, Pid)
+          end);
+      _ -> ok
+  end,
+  
   {ok, Pid}.
   
 stop() ->
@@ -42,7 +57,34 @@ stop() ->
             end,
             erlang:demonitor(MonitorRef)
     end.
+    
+restart_sup(ConnList) ->
+    error_logger:error_msg("restarting erldis_pool_sup supervisor in ~p ms~n", [?SUPERVISOR_RESTART_FREQUENCY]),
+    timer:sleep(?SUPERVISOR_RESTART_FREQUENCY),
+    process_flag(trap_exit, true),
+    case catch start_link(ConnList) of
+        {ok, Pid} ->
+            error_logger:info_msg("erldis_pool_sup restarted successfully~n", []),
+            unlink(Pid),
+            ok;
+        Reason ->
+            error_logger:error_msg("Unable to restart erldis_pool_sup: ~p~n", [Reason]),
+            restart_sup(ConnList)
+    end.
 
+monitor_do(MonitorRef, ConnList, Pid) ->
+    receive
+        {'DOWN', _Ref, process, Pid, _Reason} ->
+            restart_sup(ConnList),
+            erlang:demonitor(MonitorRef);
+        _ ->
+            monitor_do(MonitorRef, ConnList, Pid)
+    end.
+
+monitor_sup(ConnList, Pid) ->
+    MonitorRef = erlang:monitor(process, Pid),
+    monitor_do(MonitorRef, ConnList, Pid).
+    
 %%
 %% @doc Returns the supervisor specifications for the children.
 %%

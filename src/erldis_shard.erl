@@ -21,13 +21,14 @@
 
 -export([
     start_link/1,
+    start_link/2,
     client/2,
     get_slot/1,
     get_ring/0
 ]).
 
 %% This value specifies how many times one item will appear on the ring. 
--define(DEFAULT_NUM_REPLICAS, 128).
+-define(DEFAULT_NUM_REPLICAS, 512).
 
 %% @doc Initializes a Redis sharded cluster with the given ShardList.
 %%
@@ -46,7 +47,9 @@
 %%
 %% @spec start_link(shard_spec()) -> {ok, pid()}
 %%
-start_link(ShardSpec) ->
+start_link(ShardSpec) -> start_link(ShardSpec, true).
+
+start_link(ShardSpec, ManageSupervisor) ->
     catch ets:new(?MODULE, [public, named_table, bag]),
     ets:delete_all_objects(?MODULE),
     
@@ -72,15 +75,21 @@ start_link(ShardSpec) ->
     end, ShardSpec)),
     
     % Start the pool supervisor to manage all the connections
-    {ok, Pid} = erldis_pool_sup:start_link(ConnList),
+    {ok, Pid} = erldis_pool_sup:start_link(ConnList, ManageSupervisor),
     {ok, Pid}.
 
 %%
 %% @doc Returns the current Ring
 %%
 get_ring() ->
-    [{ring, Ring}] = ets:lookup(?MODULE, ring),
-    Ring.
+    case ets:lookup(?MODULE, ring_array) of
+        [{ring_array, Ring}] -> Ring;
+        _ ->
+            [{ring, {NumReplicas, Circle}}] = ets:lookup(?MODULE, ring),
+            RingArray = array:from_list(Circle),
+            ets:insert(?MODULE, {ring_array, {NumReplicas, RingArray}}),
+            {NumReplicas, RingArray}
+    end.
 
 %%
 %% @doc Returns the slot in the ring for the given Key.

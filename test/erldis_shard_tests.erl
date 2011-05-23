@@ -11,7 +11,10 @@ shard_test() ->
         {"redis02", [{{{"127.0.0.1", 6380}, 1}, master1}]},
         {"redis03", [{{{"127.0.0.1", 6380}, 1}, master2}]}
     ],
-    unlink(element(2, erldis_shard:start_link(ShardSpec))),
+    
+    application:set_env(erldis, hash_num_replicas, 128),
+    
+    unlink(element(2, erldis_shard:start_link(ShardSpec, false))),
     ?assertEqual(1, length(erldis_pool_sup:get_pids({"127.0.0.1", 6379}))),
     ?assertEqual(2, length(erldis_pool_sup:get_pids({"127.0.0.1", 6380}))),
     ?assertEqual(["redis01", "redis02", "redis03"], 

@@ -184,7 +184,7 @@ start(Host, Port, Options, DB, ShouldLink) ->
 	end.
 
 % stop is synchronous so can be sure that client is shutdown
-stop(Client) -> gen_server2:call(Client, disconnect, ?default_timeout).
+stop(Client) -> gen_server2:call(Client, disconnect).
 
 init([Host, Port]) ->
 	process_flag(trap_exit, true),
@@ -204,7 +204,10 @@ ensure_started(#redis{socket=undefined, db=DB}=State) ->
 		{error, Why} ->
 			Report = [{?MODULE, unable_to_connect}, {error, Why}, State],
 			error_logger:warning_report(Report),
-			{error, Why};
+			
+			error_logger:info_msg("Attempting to reconnect to redis in ~p ms~n", [?DEFAULT_RETRY_INTERVAL]),
+			timer:sleep(?DEFAULT_RETRY_INTERVAL),
+			ensure_started(State);
 		{ok, NewState} ->
 			Socket = NewState#redis.socket,
 			
