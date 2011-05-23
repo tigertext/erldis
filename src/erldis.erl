@@ -16,7 +16,9 @@ connect(Host) -> erldis_client:connect(Host).
 
 connect(Host, Port) -> erldis_client:connect(Host, Port).
 
-connect(Host, Port, Options) -> erldis_client:connect(Host, Port, Options).
+connect(Host, Port, Pwd) -> erldis_client:connect(Host, Port, Pwd).
+
+connect(Host, Port, Pwd, Options) -> erldis_client:connect(Host, Port, Pwd, Options).
 
 quit(Client) -> erldis_client:stop(Client).
 

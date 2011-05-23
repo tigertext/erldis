@@ -18,8 +18,8 @@
 -export([sr_scall/2, scall/2, scall/3, call/2, call/3, bcall/3,
 		 set_call/4, send/3]).
 -export([stop/1, transact/1, transact/2, select/2]).
--export([connect/0, connect/1, connect/2, connect/3, connect/4]).
--export([start_link/0, start_link/1, start_link/2, start_link/3, start_link/4]).
+-export([connect/0, connect/1, connect/2, connect/3, connect/4, connect/5]).
+-export([start_link/0, start_link/1, start_link/2, start_link/3, start_link/4, start_link/5]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 		 terminate/2, code_change/3]).
 -export([subscribe/4, unsubscribe/3]).
@@ -144,15 +144,17 @@ connect() -> start(false).
 connect(Host) when is_list(Host) -> start(Host, false);
 connect(DB) when is_integer(DB) -> start(DB, false).
 connect(Host, Port) -> start(Host, Port, false).
-connect(Host, Port, Options) -> start(Host, Port, Options, false).
-connect(Host, Port, Options, DB) -> start(Host, Port, Options, DB, false).
+connect(Host, Port, Pwd) -> start(Host, Port, Pwd, false).
+connect(Host, Port, Pwd, Options) -> start(Host, Port, Pwd, Options, false).
+connect(Host, Port, Pwd, Options, DB) -> start(Host, Port, Pwd, Options, DB, false).
 
 start_link() -> start(true).
 start_link(Host) when is_list(Host) -> start(Host, true);
 start_link(DB) when is_integer(DB) -> start(DB, true).
 start_link(Host, Port) -> start(Host, Port, true).
-start_link(Host, Port, Options) -> start(Host, Port, Options, true).
-start_link(Host, Port, Options, DB) -> start(Host, Port, Options, DB, true).
+start_link(Host, Port, Pwd) -> start(Host, Port, Pwd, true).
+start_link(Host, Port, Pwd, Options) -> start(Host, Port, Pwd, Options, true).
+start_link(Host, Port, Pwd, Options, DB) -> start(Host, Port, Pwd, Options, DB, true).
 
 start(ShouldLink) ->
 	{ok, Host} = app_get_env(erldis, host, "localhost"),
@@ -168,18 +170,22 @@ start(DB, ShouldLink) when is_integer(DB) ->
 	end.
 
 start(Host, Port, ShouldLink) ->
-	{ok, Timeout} = app_get_env(erldis, timeout, 500),
-	start(Host, Port, [{timeout, Timeout}], ShouldLink).
+  {ok, Pwd} = app_get_env(erldis, paswword, none),
+  start(Host, Port, Pwd, ShouldLink).
 
-start(Host, Port, Options, false) ->
+start(Host, Port, Pwd, ShouldLink) ->
+  {ok, Timeout} = app_get_env(erldis, timeout, 500),
+  start(Host, Port, Pwd, [{timeout, Timeout}], ShouldLink).
+
+start(Host, Port, Pwd, Options, false) ->
 	% not using start_link because caller may not want to crash if this
 	% server is shutdown
-	gen_server2:start(?MODULE, [Host, Port], Options);
-start(Host, Port, Options, true) ->
-	gen_server2:start_link(?MODULE, [Host, Port], Options).
+	gen_server2:start(?MODULE, [Host, Port, Pwd], Options);
+start(Host, Port, Pwd, Options, true) ->
+	gen_server2:start_link(?MODULE, [Host, Port, Pwd], Options).
 
-start(Host, Port, Options, DB, ShouldLink) ->
-	case start(Host, Port, Options, ShouldLink) of
+start(Host, Port, Pwd, Options, DB, ShouldLink) ->
+	case start(Host, Port, Pwd, Options, ShouldLink) of
 		{ok, Client} -> {ok, select(Client, DB)};
 		Other -> Other
 	end.
@@ -187,10 +193,10 @@ start(Host, Port, Options, DB, ShouldLink) ->
 % stop is synchronous so can be sure that client is shutdown
 stop(Client) -> gen_server2:call(Client, disconnect).
 
-init([Host, Port]) ->
+init([Host, Port, Pwd]) ->
 	process_flag(trap_exit, true),
 	{ok, Timeout} = app_get_env(erldis, timeout, 500),
-	State = #redis{calls=queue:new(), host=Host, port=Port, timeout=Timeout, subscribers=dict:new()},
+	State = #redis{calls=queue:new(), host=Host, port=Port, pwd=Pwd, timeout=Timeout, subscribers=dict:new()},
 	
 	% Add this Pid to the pool
 	erldis_pool_sup:add_pid({Host, Port}, self()),
@@ -230,13 +236,20 @@ ensure_started(#redis{socket=undefined, db=DB}=State) ->
 ensure_started(State)->
 	State.
 
-connect_socket(#redis{socket=undefined, host=Host, port=Port, timeout=Timeout}=State, Active) ->
+connect_socket(#redis{socket=undefined, host=Host, port=Port, pwd=Pwd, timeout=Timeout}=State, Active) ->
 	% NOTE: send_timeout_close not used because causes {error, badarg}
 	Opts = [binary, {active, Active}, {packet, line}, {nodelay, true},
 			{send_timeout, Timeout}],
 	% without timeout, default is infinity
 	case gen_tcp:connect(Host, Port, Opts, Timeout) of
-		{ok, Socket} -> {ok, State#redis{socket=Socket}};
+		{ok, Socket} ->
+      % send & recv here since don't have an active socket
+      % because we want synchronous result since this is called
+      % from handle_* functions
+      Cmd = erldis_proto:multibulk_cmd([<<"auth">>, Pwd]),
+      gen_tcp:send(Socket, Cmd),
+      {ok, <<"+OK", ?EOL>>} = gen_tcp:recv(Socket, 0),
+      {ok, State#redis{socket=Socket}};
 		{error, Why} -> {error, Why}
 	end;
 connect_socket(State, _) ->
