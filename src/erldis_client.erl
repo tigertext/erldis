@@ -170,7 +170,7 @@ start(DB, ShouldLink) when is_integer(DB) ->
 	end.
 
 start(Host, Port, ShouldLink) ->
-  {ok, Pwd} = app_get_env(erldis, paswword, none),
+  {ok, Pwd} = app_get_env(erldis, password, none),
   start(Host, Port, Pwd, ShouldLink).
 
 start(Host, Port, Pwd, ShouldLink) ->
@@ -180,9 +180,9 @@ start(Host, Port, Pwd, ShouldLink) ->
 start(Host, Port, Pwd, Options, false) ->
 	% not using start_link because caller may not want to crash if this
 	% server is shutdown
-	gen_server2:start(?MODULE, [Host, Port, Pwd], Options);
+	gen_server2:start(?MODULE, [Host, Port, Pwd, false], Options);
 start(Host, Port, Pwd, Options, true) ->
-	gen_server2:start_link(?MODULE, [Host, Port, Pwd], Options).
+	gen_server2:start_link(?MODULE, [Host, Port, Pwd, true], Options).
 
 start(Host, Port, Pwd, Options, DB, ShouldLink) ->
 	case start(Host, Port, Pwd, Options, ShouldLink) of
@@ -193,18 +193,24 @@ start(Host, Port, Pwd, Options, DB, ShouldLink) ->
 % stop is synchronous so can be sure that client is shutdown
 stop(Client) -> gen_server2:call(Client, disconnect).
 
-init([Host, Port, Pwd]) ->
+init([Host, Port, Pwd, _ShouldRegister]=Params) ->
 	process_flag(trap_exit, true),
 	{ok, Timeout} = app_get_env(erldis, timeout, 500),
 	State = #redis{calls=queue:new(), host=Host, port=Port, pwd=Pwd, timeout=Timeout, subscribers=dict:new()},
 	
 	% Add this Pid to the pool
-	erldis_pool_sup:add_pid({Host, Port}, self()),
+	maybe_register(Params),
 	
 	case connect_socket(State, once) of
 		{error, Why} -> {stop, {socket_error, Why}};
 		{ok, NewState} -> {ok, NewState}
 	end.
+
+maybe_register([Host, Port, _Pwd, true])->
+    erldis_pool_sup:add_pid({Host, Port}, self());
+maybe_register([_Host, _Port, _Pwd, false])->
+    ok.
+
 
 ensure_started(#redis{socket=undefined, db=DB}=State) ->
 	case connect_socket(State, false) of

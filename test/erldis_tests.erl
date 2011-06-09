@@ -155,6 +155,9 @@ zset_test() ->
 	?assertEqual(1, erldis:zcount(Client, <<"foo">>, 0, 10)),
 	?assertEqual([<<"elem1">>], erldis:zrevrange(Client, "foo", 0, 1)),
 	
+	?assertEqual(1, erldis:zunionstore(Client, <<"bar">>, [<<"foo">>], <<"sum">>)),
+	?assertEqual(1, erldis:zcard(Client, "bar")),
+	?assertEqual([<<"elem1">>], erldis:zrevrange(Client, "bar", 0, 1)),
 	?assertEqual(true, erldis:zrem(Client, <<"foo">>, <<"elem1">>)),
 	?assertEqual(false, erldis:zrem(Client, <<"foo">>, <<"elem1">>)),
 	?assertEqual(0, erldis:zcard(Client, <<"foo">>)),
@@ -202,3 +205,15 @@ watch_test()->
     {ok, Client2} = erldis_client:connect(),
     erldis:sadd(Client2, <<"foo">>, <<"baz">>),
     ?assertEqual([],erldis:exec(Client, Fun2)).
+    
+eval_test()->
+    application:load(erldis),
+    {ok, Client} = erldis_client:connect(),
+    ?assertEqual([42], erldis:eval(Client, <<"return 42">>,[])),
+    ?assertEqual([{error, <<"Some Error">>}], 
+        erldis:eval(Client, <<"return {err='Some Error'}">>,[])),
+    ?assertEqual([1, 2, <<"a">>, <<"ba">>],erldis:eval(Client, <<"return {1,2,'a','ba'}">>, [])),
+        ?assertEqual([ok],erldis:eval(Client, <<"return redis.call('set', KEYS[1], ARGV[1])">>, [<<"martin">>], [<<"sacha">>])),
+    ?assertEqual([<<"sacha">>],erldis:eval(Client, <<"return redis.call('get', 'martin')">>, [])),
+    ?assertEqual([<<"sacha">>],erldis:eval(Client, <<"return redis.call('get', KEYS[1])">>, [<<"martin">>])),
+    ok.

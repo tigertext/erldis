@@ -242,7 +242,22 @@ zremrangebyscore(Client, Key, Min, Max) ->
 	Cmd = [<<"zremrangebyscore">>, Key, Min, Max],
 	numeric(erldis_client:sr_scall(Client, Cmd)).
 
-%% TODO: zunionstore, zinterstore
+zinterstore(Client, DestKey, Sources, Aggregate)->
+    zsetstore(<<"zinterstore">>, Client, DestKey, Sources, Aggregate).
+
+zunionstore(Client, DestKey, Sources, Aggregate)->
+    zsetstore(<<"zunionstore">>, Client, DestKey, Sources, Aggregate).
+
+zsetstore(Command, Client, DestKey, Sources, Aggregate)->
+    NumKeys = length(Sources),
+    {AllKeys, AllWeights} = lists:foldl(
+    fun(Key, {Keys, Weights})->
+        {[Key|Keys], [<<"1">>|Weights]};
+       ({Key, Weight}, {Keys, Weights})->
+        {[Key|Keys], [Weight|Weights]}
+    end, {[], []}, Sources),
+    Cmd = [Command,DestKey, NumKeys, AllKeys, <<"weights">>,AllWeights, <<"aggregate">>, Aggregate],
+    numeric(erldis_client:sr_scall(Client, Cmd)).
 
 %%%%%%%%%%%%%%%%%%%
 %% Hash commands %%
@@ -310,6 +325,7 @@ sort(Client, Key, Extra) when is_binary(Key), is_binary(Extra) ->
 get_all_results(Client) -> gen_server2:call(Client, get_all_results, ?default_timeout).
 
 set_pipelining(Client, Bool) -> gen_server2:cast(Client, {pipelining, Bool}).
+
 watch(Client, Keys)->
     erldis_client:sr_scall(Client,[ <<"watch">>, Keys]).
     
@@ -379,6 +395,20 @@ flushdb(Client) -> erldis_client:sr_scall(Client, <<"flushdb">>).
 
 flushall(Client) -> erldis_client:sr_scall(Client, <<"flushall">>).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%% Script evaluation %%
+%%%%%%%%%%%%%%%%%%%%%%%
+eval(Client, Script, Keys) ->
+    eval(Client, Script, Keys, []).
+    
+eval(Client, Script, Keys, Args)->
+    Len = length(Keys),
+    lists:map(fun(L)->
+        numeric(L)
+    end, erldis_client:scall(Client, lists:flatten([<<"eval">>, Script, Len, Keys, Args]))).
+    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Persistence control commands %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -441,7 +471,15 @@ numeric(true) ->
 numeric(nil) ->
 	0;
 numeric(I) when is_binary(I) ->
-	numeric(binary_to_list(I));
+	II = binary_to_list(I),
+	try
+		list_to_integer(II)
+	catch
+		error:badarg ->
+			try list_to_float(II)
+			catch error:badarg -> I
+			end
+	end;
 numeric(I) when is_list(I) ->
 	try
 		list_to_integer(I)
