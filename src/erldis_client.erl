@@ -15,8 +15,7 @@
 
 -include("erldis.hrl").
 
--export([sr_scall/2, scall/2, scall/3, call/2, call/3, bcall/3,
-		 set_call/4, send/3]).
+-export([sr_scall/2, scall/2, scall/3, bcall/3, set_call/4, send/3]).
 -export([stop/1, transact/1, transact/2, select/2]).
 -export([connect/0, connect/1, connect/2, connect/3, connect/4, connect/5]).
 -export([start_link/0, start_link/1, start_link/2, start_link/3, start_link/4, start_link/5]).
@@ -63,20 +62,20 @@ sr_scall(Client, Args) ->
 scall(Client, Args) -> scall(Client, Args, ?default_timeout).
 
 scall(Client, Args, Timeout) ->
-	send(Client, erldis_proto:multibulk_cmd(Args), Timeout).
-
-% This is the complete send with multiple rows
-call(Client, Args) -> call(Client, Args, ?default_timeout).
-
-call(Client, Args, Timeout) -> send(Client,
-	erldis_proto:multibulk_cmd(Args), Timeout).
+	try send(Client, erldis_proto:multibulk_cmd(Args), Timeout)
+  catch
+    throw:Error ->
+      %% If it fails, we stop it (if it's not already dead)
+      stop(Client),
+      throw(Error)
+  end.
 
 % Blocking call with server-side timeout added as final command arg
 bcall(Client, Args, Timeout) ->
 	scall(Client, Args ++ [server_timeout(Timeout)], erlang_timeout(Timeout)).
 
 set_call(Client, Cmd, Key, Val) when is_binary(Val) ->
-	call(Client, Cmd, [[Key, erlang:size(Val)], [Val]]);
+	scall(Client, Cmd, [[Key, erlang:size(Val)], [Val]]);
 set_call(Client, Cmd, Key, Val) ->
 	set_call(Client, Cmd, Key, erldis_binaries:to_binary(Val)).
 
@@ -191,7 +190,13 @@ start(Host, Port, Pwd, Options, DB, ShouldLink) ->
 	end.
 
 % stop is synchronous so can be sure that client is shutdown
-stop(Client) -> gen_server2:call(Client, disconnect).
+stop(Client) ->
+  try gen_server2:call(Client, disconnect)
+  catch
+    _:{timeout, _} ->
+      % we make sure it's dead, even if it can't stop by itself
+      erlang:exit(Client, kill)
+  end.
 
 init([Host, Port, Pwd, _ShouldRegister]=Params) ->
 	process_flag(trap_exit, true),
