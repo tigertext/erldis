@@ -217,12 +217,27 @@ zrangebyscore(Client, Key, Min, Max, Offset, Count) ->
 	Cmd = [<<"zrangebyscore">>, Key, Min, Max, <<"limit">>, Offset, Count],
 	erldis_client:scall(Client, Cmd).
 
+zrevrangebyscore(Client, Key, Min, Max) ->
+	erldis_client:scall(Client, [<<"zrevrangebyscore">>, Key, Min, Max]).
+	
+zrevrangebyscore(Client, Key, Min, Max, Offset, Count) ->
+	Cmd = [<<"zrevrangebyscore">>, Key, Min, Max, <<"limit">>, Offset, Count],
+	erldis_client:scall(Client, Cmd).
+
 zrangebyscore_withscores(Client, Key, Min, Max) ->
         Cmd = [<<"zrangebyscore">>, Key, Min, Max, <<"withscores">>],
 	withscores(erldis_client:scall(Client, Cmd)).
 
 zrangebyscore_withscores(Client, Key, Min, Max, Offset, Count) ->
 	Cmd = [<<"zrangebyscore">>, Key, Min, Max, <<"limit">>, Offset, Count, <<"withscores">>],
+	withscores(erldis_client:scall(Client, Cmd)).
+	
+zrevrangebyscore_withscores(Client, Key, Min, Max) ->
+        Cmd = [<<"zrevrangebyscore">>, Key, Min, Max, <<"withscores">>],
+	withscores(erldis_client:scall(Client, Cmd)).
+
+zrevrangebyscore_withscores(Client, Key, Min, Max, Offset, Count) ->
+	Cmd = [<<"zrevrangebyscore">>, Key, Min, Max, <<"limit">>, Offset, Count, <<"withscores">>],
 	withscores(erldis_client:scall(Client, Cmd)).
 
 zcard(Client, Key) ->
