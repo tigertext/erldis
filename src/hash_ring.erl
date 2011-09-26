@@ -32,10 +32,7 @@ get_item_array(Key, Array) ->
 
 find_next_highest_item(_Point, Items, A, B) when (A + 1) == B ->
     element(1, array:get(B - 1, Items));
- 
-find_next_highest_item(_Point, [], _, _)  ->
-    undefined;
-  
+
 find_next_highest_item(Point, Points, A, B) ->
     NumPoints = B - A,
     Halfway = round(NumPoints / 2),

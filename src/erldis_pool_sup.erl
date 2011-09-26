@@ -37,11 +37,12 @@ start_link(ConnList, ManageSupervisor) ->
   {ok, Pid} = supervisor:start_link({local, ?MODULE}, ?MODULE, [ConnList]),
   
   case ManageSupervisor of
-      true ->
-          spawn(fun() ->
-              monitor_sup(ConnList, Pid)
-          end);
-      _ -> ok
+    true ->
+      spawn(fun() ->
+                    monitor_sup(ConnList, Pid)
+            end),
+      ok;
+    _ -> ok
   end,
   
   {ok, Pid}.

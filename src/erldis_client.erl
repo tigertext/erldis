@@ -237,11 +237,12 @@ ensure_started(#redis{socket=undefined, db=DB}=State) ->
 					% because we want synchronous result since this is called
 					% from handle_* functions
 					Cmd = erldis_proto:multibulk_cmd([<<"select">>, DB]),
-					gen_tcp:send(Socket, Cmd),
-					{ok, <<"+OK", ?EOL>>} = gen_tcp:recv(Socket, 0)
+					ok = gen_tcp:send(Socket, Cmd),
+					{ok, <<"+OK", ?EOL>>} = gen_tcp:recv(Socket, 0),
+					ok
 			end,
 			
-			inet:setopts(Socket, [{active, once}]),
+			ok = inet:setopts(Socket, [{active, once}]),
 			NewState
 	end;
 ensure_started(State)->
@@ -267,15 +268,13 @@ connect_socket(#redis{socket=undefined, host=Host, port=Port, pwd=Pwd, timeout=T
           % because we want synchronous result since this is called
           % from handle_* functions
           Cmd = erldis_proto:multibulk_cmd([<<"auth">>, Pwd]),
-          gen_tcp:send(Socket, Cmd),
+          ok = gen_tcp:send(Socket, Cmd),
           {ok, <<"+OK", ?EOL>>} = gen_tcp:recv(Socket, 0),
-          inet:setopts(Socket, [{active, Active}]),
+          ok = inet:setopts(Socket, [{active, Active}]),
           {ok, State#redis{socket=Socket}};
         {error, Why} -> {error, Why}
       end
-	end;
-connect_socket(State, _) ->
-	{ok, State}.
+	end.
 
 %%%%%%%%%%%%%%%%%
 %% handle_call %%
@@ -317,7 +316,7 @@ handle_call({send, Cmd}, From, State1) ->
     {error, Why} ->
       {stop, {error, Why}, {error, Why}, State1};
     State ->
-      case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
+      case gen_tcp:send(State#redis.socket, [Cmd, <<?EOL>>]) of
         ok ->
           Queue = queue:in(From, State#redis.calls),
           
@@ -340,7 +339,7 @@ handle_call({subscribe, Cmd, Class, Pid}, From, State1)->
     {error, Why} ->
       {stop, {error, Why}, {error, Why}, State1};
     State ->
-      case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
+      case gen_tcp:send(State#redis.socket, [Cmd, <<?EOL>>]) of
         ok ->
           Queue = queue:in(From, State#redis.calls),
           Subscribers = dict:store(Class, Pid, State#redis.subscribers),
@@ -355,16 +354,14 @@ handle_call({unsubscribe, Cmd, Class}, From, State1)->
     {error, Why} ->
       {stop, {error, Why}, {error, Why}, State1};
     State ->
-      case gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]) of
+      case gen_tcp:send(State#redis.socket, [Cmd, <<?EOL>>]) of
         ok ->
           Queue = queue:in(From, State#redis.calls),
           
-          if
-            Class == <<"">> ->
-              Subscribers = dict:new();
-            true ->
-              Subscribers = dict:erase(Class, State#redis.subscribers)
-          end,
+          Subscribers =
+            if  Class == <<"">> -> dict:new();
+                true -> dict:erase(Class, State#redis.subscribers)
+            end,
           
           {noreply, State#redis{calls=Queue, remaining=1, subscribers=Subscribers}};
         {error, Reason} ->
@@ -393,8 +390,8 @@ handle_cast({send, Cmd}, #redis{remaining=Remaining, calls=Calls} = State1) ->
       {stop, {error, Why}, State1};
     State ->  
       Queue = queue:in(async, Calls),
-      gen_tcp:send(State#redis.socket, [Cmd | <<?EOL>>]),
-      
+      ok = gen_tcp:send(State#redis.socket, [Cmd, <<?EOL>>]),
+
       case Remaining of
         0 -> {noreply, State#redis{remaining=1, calls=Queue}};
         _ -> {noreply, State#redis{calls=Queue}}
@@ -408,11 +405,11 @@ handle_cast(_, State) ->
 %%%%%%%%%%%%%%%%%
 
 recv_value(Socket, NBytes) ->
-	inet:setopts(Socket, [{packet, 0}]), % go into raw mode to read bytes
+	ok = inet:setopts(Socket, [{packet, 0}]), % go into raw mode to read bytes
 	
 	case gen_tcp:recv(Socket, NBytes+2) of
 		{ok, Packet} ->
-			inet:setopts(Socket, [{packet, line}]), % go back to line mode
+			ok = inet:setopts(Socket, [{packet, line}]), % go back to line mode
 			trim2(Packet);
 		{error, Reason} ->
 			error_logger:error_report([{recv, NBytes}, {error, Reason}]),
@@ -420,10 +417,11 @@ recv_value(Socket, NBytes) ->
 	end.
 
 send_reply(#redis{pipeline=true, calls=Calls, results=Results, reply_caller=ReplyCaller}=State)->
-	case lists:reverse(State#redis.buffer) of
-		[Result] when is_atom(Result) -> Result;
-		Result -> Result
-	end,
+  Result =
+    case lists:reverse(State#redis.buffer) of
+      [R] when is_atom(R) -> R;
+      R -> R
+    end,
 	
 	{_, Queue} = queue:out(Calls),
 	
@@ -451,13 +449,15 @@ send_reply(#redis{pipeline=true, calls=Calls, results=Results, reply_caller=Repl
 	end;
 
 send_reply(State) ->
-	case queue:out(State#redis.calls) of
-		{{value, From}, Queue} ->
-			Reply = lists:reverse(State#redis.buffer),
-      gen_server2:reply(From, Reply);
-		{empty, Queue} ->
-			ok
-	end,
+  Queue =
+    case queue:out(State#redis.calls) of
+      {{value, From}, Q} ->
+        Reply = lists:reverse(State#redis.buffer),
+        gen_server2:reply(From, Reply),
+        Q;
+      {empty, Q} ->
+        Q
+    end,
 	
 	State#redis{calls=Queue, buffer=[], pstate=empty}.
 
@@ -498,7 +498,8 @@ parse_state(State, Socket, Data) ->
 				[PubSubValue, Class, <<"message">>] ->
 					case dict:find(Class, State#redis.subscribers) of
 						{ok, Pid} -> 
-							Pid ! {message, Class, PubSubValue};
+							Pid ! {message, Class, PubSubValue},
+              ok;
 						_ ->
 							error_logger:error_report([lost_message, {class, Class}])
 					end,
@@ -522,14 +523,15 @@ parse_state(State, Socket, Data) ->
 	end.
 
 handle_info({tcp, Socket, Data}, State) ->
-	case parse_state(State, Socket, Data) of
-		{error, Reason} ->
-			Report = [{?MODULE, unable_to_parse}, {error, Reason}, State],
-      error_logger:warning_report(Report),
-      {stop, Reason, State};
+	try parse_state(State, Socket, Data) of
 		NewState ->
-			inet:setopts(Socket, [{active, once}]),
+			ok = inet:setopts(Socket, [{active, once}]),
 			{noreply, NewState}
+  catch
+    _:Reason ->
+      Report = [{?MODULE, unable_to_parse}, Reason, State],
+      error_logger:warning_report(Report),
+      {stop, Reason, State}
 	end;
 handle_info({tcp_closed, Socket}, State=#redis{socket=Socket}) ->
   {noreply, State#redis{socket=undefined}};

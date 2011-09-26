@@ -242,11 +242,11 @@ handle_cast(_, State) ->
 %%%%%%%%%%%%%%%%%
 
 recv_value(Socket, NBytes) ->
-	inet:setopts(Socket, [{packet, 0}]), % go into raw mode to read bytes
+	ok = inet:setopts(Socket, [{packet, 0}]), % go into raw mode to read bytes
 	
 	case gen_tcp:recv(Socket, NBytes+2) of
 		{ok, Packet} ->
-			inet:setopts(Socket, [{packet, line}]), % go back to line mode
+			ok = inet:setopts(Socket, [{packet, line}]), % go back to line mode
 			trim2({ok, Packet});
 		{error, Reason} ->
 			error_logger:error_report([{recv, NBytes}, {error, Reason}]),
@@ -299,7 +299,7 @@ handle_info({tcp, Socket, Data}, State) ->
 			error_logger:error_report([{parse_state, Data}, {error, Reason}]),
 			{stop, Reason, State};
 		NewState ->
-			inet:setopts(Socket, [{active, once}]),
+			ok = inet:setopts(Socket, [{active, once}]),
 			{noreply, NewState}
 	end;
 handle_info({tcp_closed, Socket}, State=#redis{socket=Socket}) ->

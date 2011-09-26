@@ -4,7 +4,7 @@ EBIN_DIRS		:= $(wildcard deps/*/ebin)
 
 .PHONY: rel deps
 
-all: deps compile
+all: compile
 
 compile: deps
 	@./rebar compile

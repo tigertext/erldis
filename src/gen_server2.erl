@@ -354,8 +354,7 @@ process_msg(Parent, Name, State, Mod, Time, Queue, Debug, Msg) ->
 	_Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, Name, State, Mod, Time, Queue);
 	_Msg ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, 
-				      Name, {in, Msg}),
+	    Debug1 = sys:handle_debug(Debug, fun ?MODULE:print_event/3, Name, {in, Msg}),
 	    handle_msg(Msg, Parent, Name, State, Mod, Time, Queue, Debug1)
     end.
 
@@ -589,12 +588,10 @@ handle_msg({'$gen_call', From, Msg},
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
 	    loop(Parent, Name, NState, Mod, Time1, Queue, Debug1);
 	{noreply, NState} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
-				      {noreply, NState}),
+	    Debug1 = sys:handle_debug(Debug, fun ?MODULE:print_event/3, Name, {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, infinity, Queue, Debug1);
 	{noreply, NState, Time1} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
-				      {noreply, NState}),
+	    Debug1 = sys:handle_debug(Debug, fun ?MODULE:print_event/3, Name, {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, Time1, Queue, Debug1);
 	{stop, Reason, Reply, NState} ->
 	    {'EXIT', R} = 
@@ -628,12 +625,10 @@ handle_common_reply(Reply, Parent, Name, Msg, Mod, State, Queue) ->
 handle_common_reply(Reply, Parent, Name, Msg, Mod, State, Queue, Debug) ->
     case Reply of
 	{noreply, NState} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
-				      {noreply, NState}),
+	    Debug1 = sys:handle_debug(Debug, fun ?MODULE:print_event/3, Name, {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, infinity, Queue, Debug1);
 	{noreply, NState, Time1} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
-				      {noreply, NState}),
+	    Debug1 = sys:handle_debug(Debug, fun ?MODULE:print_event/3, Name, {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, Time1, Queue, Debug1);
 	{stop, Reason, NState} ->
 	    terminate(Reason, Name, Msg, Mod, NState, Debug);
@@ -645,8 +640,7 @@ handle_common_reply(Reply, Parent, Name, Msg, Mod, State, Queue, Debug) ->
 
 reply(Name, {To, Tag}, Reply, State, Debug) ->
     reply({To, Tag}, Reply),
-    sys:handle_debug(Debug, {?MODULE, print_event}, Name, 
-		     {out, Reply, To, State} ).
+    sys:handle_debug(Debug, fun ?MODULE:print_event/3, Name, {out, Reply, To, State}).
 
 
 %%-----------------------------------------------------------------
@@ -655,6 +649,7 @@ reply(Name, {To, Tag}, Reply, State, Debug) ->
 system_continue(Parent, Debug, [Name, State, Mod, Time, Queue]) ->
     loop(Parent, Name, State, Mod, Time, Queue, Debug).
 
+-spec system_terminate(_,_,_,[any()]) -> no_return().
 system_terminate(Reason, _Parent, Debug, [Name, State, Mod, _Time, _Queue]) ->
     terminate(Reason, Name, [], Mod, State, Debug).
 
@@ -691,7 +686,7 @@ print_event(Dev, Event, Name) ->
 %%% ---------------------------------------------------
 %%% Terminate the server.
 %%% ---------------------------------------------------
-
+-spec terminate(_,_,_,_,_,_) -> no_return().
 terminate(Reason, Name, Msg, Mod, State, Debug) ->
     case catch Mod:terminate(Reason, State) of
 	{'EXIT', R} ->
