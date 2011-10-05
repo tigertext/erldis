@@ -450,6 +450,8 @@ auth(Client, Password) ->
 %%%%%%%%%%
 ping(Client) -> erldis_client:sr_scall(Client, <<"ping">>).
 
+echo(Client,Message) -> erldis_client:sr_scall(Client,[<<"echo">>,Message]).
+
 %% @doc Returns proplist of redis stats
 info(Client) ->
 	F = fun(Tok, Stats) ->
