@@ -125,6 +125,9 @@ lpush(Client, Key, Value) when is_binary(Value) ->
 lpush(Client, Key, Values) ->
   numeric(erldis_client:sr_scall(Client, [<<"lpush">>, Key | Values])).
 
+lpushx(Client, Key, Value) when is_binary(Value) ->
+  numeric(erldis_client:sr_scall(Client, [<<"lpushx">>, Key, Value])).
+
 llen(Client, Key) ->
 	numeric(erldis_client:sr_scall(Client, [<<"llen">>, Key])).
 
