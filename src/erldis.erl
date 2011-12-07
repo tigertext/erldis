@@ -39,8 +39,8 @@ keys(Client, Pattern) ->
 	% NOTE: with binary-list conversion, timer:tc says 26000-30000 microseconds
 	erldis_client:scall(Client, [<<"keys">>, Pattern]).
 
-randomkey(Client, Key) ->
-	erldis_client:sr_scall(Client, [<<"randomkey">>, Key]).
+randomkey(Client) ->
+	erldis_client:sr_scall(Client, [<<"randomkey">>]).
 
 rename(Client, OldKey, NewKey) ->
 	erldis_client:sr_scall(Client, [<<"rename">>, OldKey, NewKey]).
