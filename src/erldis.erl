@@ -197,8 +197,12 @@ smembers(Client, Key) -> erldis_client:scall(Client, [<<"smembers">>, Key]).
 %% Commands operating on ordered sets %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+zadd(Client, Key, Members) ->
+  Args = lists:foldl(fun({K, V}, Acc) -> [K, V | Acc] end, [], Members),
+  erldis_client:sr_scall(Client, [<<"zadd">>, Key | Args]).
+
 zadd(Client, Key, Score, Member) ->
-	erldis_client:sr_scall(Client, [<<"zadd">>, Key, Score, Member]).
+	zadd(Client, Key, [{Score, Member}]).
 
 zrem(Client, Key, Member) ->
 	erldis_client:sr_scall(Client, [<<"zrem">>, Key, Member]).
