@@ -120,6 +120,9 @@ rpush(Client, Key, Value) when is_binary(Value) ->
 rpush(Client, Key, Values) ->
   numeric(erldis_client:sr_scall(Client, [<<"rpush">>, Key | Values])).
 
+rpushx(Client, Key, Value) when is_binary(Value) ->
+  numeric(erldis_client:sr_scall(Client, [<<"rpushx">>, Key, Value])).
+
 lpush(Client, Key, Value) when is_binary(Value) ->
 	lpush(Client, Key, [Value]);
 lpush(Client, Key, Values) ->
