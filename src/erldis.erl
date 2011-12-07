@@ -105,11 +105,15 @@ decrby(Client, Key, By) ->
 %% Commands operating on lists %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-rpush(Client, Key, Value) ->
-	numeric(erldis_client:sr_scall(Client, [<<"rpush">>, Key, Value])).
+rpush(Client, Key, Value) when is_binary(Value) ->
+  rpush(Client, Key, [Value]);
+rpush(Client, Key, Values) ->
+  numeric(erldis_client:sr_scall(Client, [<<"rpush">>, Key | Values])).
 
-lpush(Client, Key, Value) ->
-	numeric(erldis_client:sr_scall(Client, [<<"lpush">>, Key, Value])).
+lpush(Client, Key, Value) when is_binary(Value) ->
+	lpush(Client, Key, [Value]);
+lpush(Client, Key, Values) ->
+  numeric(erldis_client:sr_scall(Client, [<<"lpush">>, Key | Values])).
 
 llen(Client, Key) ->
 	numeric(erldis_client:sr_scall(Client, [<<"llen">>, Key])).
