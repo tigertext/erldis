@@ -75,7 +75,17 @@ mget(Client, Keys) -> erldis_client:scall(Client, [<<"mget">> | Keys]).
 setnx(Client, Key, Value) ->
 	erldis_client:sr_scall(Client, [<<"setnx">>, Key, Value]).
 
-%% TODO: setex, mset, msetnx
+%% TODO: test setex, mset, msetnx
+setex(Client, Key, Seconds, Value) ->
+  erldis_client:sr_scall(Client, [<<"setex">>, Key, Seconds, Value]).
+
+mset(Client, KVs) ->
+  Args = lists:foldl(fun({K, V}, Acc) -> [K, V | Acc] end, [], KVs),
+  erldis_client:sr_scall(Client, [<<"mset">> | Args]).
+
+msetnx(Client, KVs) ->
+  Args = lists:foldl(fun({K, V}, Acc) -> [K, V | Acc] end, [], KVs),
+  erldis_client:sr_scall(Client, [<<"msetnx">> | Args]).
 
 incr(Client, Key) ->
 	numeric(erldis_client:sr_scall(Client, [<<"incr">>, Key])).
@@ -384,10 +394,11 @@ subscribe(Client, Channel, Pid) ->
 unsubscribe(Client)-> unsubscribe(Client, <<"">>).
 
 unsubscribe(Client, Channel) ->
-	case Channel of
-		<<"">> -> Args = [];
-		_ -> Args = [Channel]
-	end,
+	Args = 
+    case Channel of
+      <<"">> -> [];
+      _ -> [Channel]
+    end,
 	
 	Cmd = erldis_proto:multibulk_cmd([<<"unsubscribe">> | Args]),
 	
