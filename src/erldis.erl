@@ -137,6 +137,9 @@ ltrim(Client, Key, Start, End) ->
 lindex(Client, Key, Index) ->
 	erldis_client:sr_scall(Client, [<<"lindex">>, Key, Index]).
 
+linsert(Client, Key, Position, Pivot, Value) ->
+  erldis_client:sr_scall(Client, [<<"linsert">>, Key, Position, Pivot, Value]).
+
 lset(Client, Key, Index, Value) ->
 	erldis_client:sr_scall(Client, [<<"lset">>, Key, Index, Value]).
 
