@@ -39,8 +39,6 @@ keys(Client, Pattern) ->
 	% NOTE: with binary-list conversion, timer:tc says 26000-30000 microseconds
 	erldis_client:scall(Client, [<<"keys">>, Pattern]).
 
-% TODO: test randomkey, rename, renamenx, dbsize, expire, ttl
-
 randomkey(Client, Key) ->
 	erldis_client:sr_scall(Client, [<<"randomkey">>, Key]).
 
@@ -54,6 +52,9 @@ dbsize(Client) -> numeric(erldis_client:sr_scall(Client, [<<"dbsize">>])).
 
 expire(Client, Key, Seconds) ->
 	erldis_client:sr_scall(Client, [<<"expire">>, Key, Seconds]).
+
+expireat(Client, Key, Timestamp) ->
+  erldis_client:sr_scall(Client, [<<"expireat">>, Key, Timestamp]).
 
 ttl(Client, Key) -> erldis_client:sr_scall(Client, [<<"ttl">>, Key]).
 
@@ -75,7 +76,6 @@ mget(Client, Keys) -> erldis_client:scall(Client, [<<"mget">> | Keys]).
 setnx(Client, Key, Value) ->
 	erldis_client:sr_scall(Client, [<<"setnx">>, Key, Value]).
 
-%% TODO: test setex, mset, msetnx
 setex(Client, Key, Seconds, Value) ->
   erldis_client:sr_scall(Client, [<<"setex">>, Key, Seconds, Value]).
 
@@ -98,8 +98,6 @@ decr(Client, Key) ->
 
 decrby(Client, Key, By) ->
 	numeric(erldis_client:sr_scall(Client, [<<"decrby">>, Key, By])).
-
-%% TODO: append, substr
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Commands operating on lists %%
@@ -162,7 +160,6 @@ srem(Client, Key, Member) ->
 spop(Client, Key) ->
 	erldis_client:sr_scall(Client, [<<"spop">>, Key]).
 
-% TODO: test
 smove(Client, SrcKey, DstKey, Member) ->
 	erldis_client:sr_scall(Client, [<<"smove">>, SrcKey, DstKey, Member]).
 
@@ -190,8 +187,6 @@ sdiffstore(Client, DstKey, Keys) ->
 	numeric(erldis_client:sr_scall(Client, [<<"sdiffstore">>, DstKey | Keys])).
 
 smembers(Client, Key) -> erldis_client:scall(Client, [<<"smembers">>, Key]).
-
-%% TODO: srandmember
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Commands operating on ordered sets %%
