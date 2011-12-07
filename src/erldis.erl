@@ -151,8 +151,10 @@ rpoplpush(Client, Key1, Key2) -> erldis_client:sr_scall(Client, [<<"rpoplpush">>
 %% Commands operating on sets %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-sadd(Client, Key, Member) ->
-	erldis_client:sr_scall(Client, [<<"sadd">>, Key, Member]).
+sadd(Client, Key, Member) when is_binary(Member) ->
+  sadd(Client, Key, [Member]);
+sadd(Client, Key, Members) ->
+	erldis_client:sr_scall(Client, [<<"sadd">>, Key | Members]).
 
 srem(Client, Key, Member) ->
 	erldis_client:sr_scall(Client, [<<"srem">>, Key, Member]).
