@@ -58,6 +58,15 @@ expireat(Client, Key, Timestamp) ->
 
 ttl(Client, Key) -> erldis_client:sr_scall(Client, [<<"ttl">>, Key]).
 
+object_refcount(Client, Key) ->
+  numeric(erldis_client:sr_scall(Client, [<<"object refcount">>, Key])).
+
+object_encoding(Client, Key) ->
+  erldis_client:sr_scall(Client, [<<"object encoding">>, Key]).
+
+object_idletime(Client, Key) ->
+  numeric(erldis_client:sr_scall(Client, [<<"object idletime">>, Key])).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Commands operating on string values %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
