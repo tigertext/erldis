@@ -155,6 +155,8 @@ brpop(Client, Keys) -> brpop(Client, Keys, infinity).
 
 brpop(Client, Keys, Timeout) -> erldis_client:bcall(Client, [<<"brpop">> | Keys], Timeout).
 
+brpoplpush(Client, Keys, Timeout) -> erldis_client:bcall(Client, [<<"brpoplpush">> | Keys], Timeout).
+
 rpoplpush(Client, Key1, Key2) -> erldis_client:sr_scall(Client, [<<"rpoplpush">>, Key1, Key2]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
