@@ -58,6 +58,9 @@ expireat(Client, Key, Timestamp) ->
 
 ttl(Client, Key) -> erldis_client:sr_scall(Client, [<<"ttl">>, Key]).
 
+persist(Client, Key) ->
+  erldis_client:sr_scall(Client, [<<"persist">>, Key]).
+
 object_refcount(Client, Key) ->
   numeric(erldis_client:sr_scall(Client, [<<"object refcount">>, Key])).
 
