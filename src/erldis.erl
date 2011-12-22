@@ -74,8 +74,14 @@ object_idletime(Client, Key) ->
 %% Commands operating on string values %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+append(Client, Key, Value) ->
+  numeric(erldis_client:sr_scall(Client, [<<"append">>, Key, Value])).
+
 set(Client, Key, Value) ->
 	erldis_client:sr_scall(Client, [<<"set">>, Key, Value]).
+
+getrange(Client, Key, Start, End) ->
+  erldis_client:sr_scall(Client, [<<"getrange">>, Key, Start, End]).
 
 get(Client, Key) -> erldis_client:sr_scall(Client, [<<"get">>, Key]).
 
@@ -90,6 +96,9 @@ setnx(Client, Key, Value) ->
 
 setex(Client, Key, Seconds, Value) ->
   erldis_client:sr_scall(Client, [<<"setex">>, Key, Seconds, Value]).
+
+setrange(Client, Key, Offset, Value) ->
+  numeric(erldis_client:sr_scall(Client, [<<"setrange">>, Key, Offset, Value])).
 
 mset(Client, KVs) ->
   Args = lists:foldl(fun({K, V}, Acc) -> [K, V | Acc] end, [], KVs),
@@ -110,6 +119,9 @@ decr(Client, Key) ->
 
 decrby(Client, Key, By) ->
 	numeric(erldis_client:sr_scall(Client, [<<"decrby">>, Key, By])).
+
+strlen(Client, Key) ->
+  numeric(erldis_client:sr_scall(Client, [<<"strlen">>, Key])).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Commands operating on lists %%
