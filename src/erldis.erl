@@ -189,11 +189,16 @@ sadd(Client, Key, Member) when is_binary(Member) ->
 sadd(Client, Key, Members) ->
 	erldis_client:sr_scall(Client, [<<"sadd">>, Key | Members]).
 
-srem(Client, Key, Member) ->
-	erldis_client:sr_scall(Client, [<<"srem">>, Key, Member]).
+srem(Client, Key, Member) when is_binary(Member) ->
+  srem(Client, Key, [Member]);
+srem(Client, Key, Members) ->
+	erldis_client:sr_scall(Client, [<<"srem">>, Key | Members]).
 
 spop(Client, Key) ->
 	erldis_client:sr_scall(Client, [<<"spop">>, Key]).
+
+srandmember(Client, Key) ->
+  erldis_client:sr_scall(Client, [<<"srandmember">>, Key]).
 
 smove(Client, SrcKey, DstKey, Member) ->
 	erldis_client:sr_scall(Client, [<<"smove">>, SrcKey, DstKey, Member]).
