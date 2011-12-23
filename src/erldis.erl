@@ -321,10 +321,10 @@ zunionstore(Client, DestKey, Sources, Aggregate)->
 zsetstore(Command, Client, DestKey, Sources, Aggregate)->
     NumKeys = length(Sources),
     {AllKeys, AllWeights} = lists:foldl(
-    fun(Key, {Keys, Weights})->
-        {[Key|Keys], [<<"1">>|Weights]};
-       ({Key, Weight}, {Keys, Weights})->
-        {[Key|Keys], [Weight|Weights]}
+    fun({Key, Weight}, {Keys, Weights})->
+        {[Key|Keys], [Weight|Weights]};
+       (Key, {Keys, Weights})->
+        {[Key|Keys], [<<"1">>|Weights]}
     end, {[], []}, Sources),
     Cmd = [Command,DestKey, NumKeys, AllKeys, <<"weights">>,AllWeights, <<"aggregate">>, Aggregate],
     numeric(erldis_client:sr_scall(Client, Cmd)).
