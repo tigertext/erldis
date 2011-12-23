@@ -239,8 +239,10 @@ zadd(Client, Key, Members) ->
 zadd(Client, Key, Score, Member) ->
 	zadd(Client, Key, [{Score, Member}]).
 
-zrem(Client, Key, Member) ->
-	erldis_client:sr_scall(Client, [<<"zrem">>, Key, Member]).
+zrem(Client, Key, Member) when is_binary(Member) ->
+  zrem(Client, Key, [Member]);
+zrem(Client, Key, Members) ->
+	erldis_client:sr_scall(Client, [<<"zrem">>, Key | Members]).
 
 zincrby(Client, Key, By, Member) ->
 	numeric(erldis_client:sr_scall(Client, [<<"zincrby">>, Key, By, Member])).
