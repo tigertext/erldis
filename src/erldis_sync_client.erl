@@ -275,8 +275,8 @@ parse_state(State, Socket, Data) ->
 		{_, {read, nil}} ->
 			% reply with nil
 			send_reply(State#redis{buffer=[nil]});
-	  {_, {read, 0}} ->
-			% reply with nil
+		{_, {empty, 0}} ->
+			% this is needed to handle multi-bulk empty list responses
 			send_reply(State#redis{buffer=[]});
 		{0, {read, NBytes}} ->
 			% reply with Value added to buffer

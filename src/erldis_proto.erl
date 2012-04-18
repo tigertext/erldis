@@ -40,7 +40,7 @@ parse(_, <<"$-1">>) ->
 parse(empty, <<"*-1">>) ->
 	{hold, nil};
 parse(empty, <<"*0">>) ->
-	{read, 0};
+	{empty, 0};
 parse(_, <<"$", BulkSize/binary>>) ->
 	{read, list_to_integer(binary_to_list(BulkSize))};
 parse(empty, <<"*", MultiBulkSize/binary>>) ->

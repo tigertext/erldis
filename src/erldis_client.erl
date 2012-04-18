@@ -485,8 +485,8 @@ parse_state(State, Socket, Data) ->
 							State#redis{remaining=N, buffer=NewBuffer, pstate=read}
 						end
 			end;
-		{_, {read, 0}} when State#redis.pstate =:= empty ->
-			% this is needed to handle single-line reply empty responses
+		{_, {empty, 0}} ->
+			% this is needed to handle multi-bulk empty list responses
 			send_reply(State#redis{buffer=[]});
 		{0, {read, NBytes}} ->
 			% reply with Value added to buffer
