@@ -23,7 +23,7 @@
 		 terminate/2, code_change/3]).
 -export([subscribe/4, unsubscribe/3]).
 
--define(default_timeout, 20000).
+-define(default_timeout, 120000).
 -define(DEFAULT_RETRY_INTERVAL, 5000). %% retry redis connection interval (ms)
 
 %%%%%%%%%%%%%
